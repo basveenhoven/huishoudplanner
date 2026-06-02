@@ -1,0 +1,514 @@
+<!DOCTYPE html>
+<html lang="nl">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<title>Huishoudplanner</title>
+<link rel="manifest" href="manifest.webmanifest" />
+<meta name="theme-color" content="#0c447c" />
+<meta name="mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-capable" content="yes" />
+<meta name="apple-mobile-web-app-status-bar-style" content="default" />
+<meta name="apple-mobile-web-app-title" content="Planner" />
+<link rel="apple-touch-icon" href="icons/icon-192.png" />
+<style>
+	:root {
+		--bg: #ffffff;
+		--page: #f4f3ef;
+		--surface: #f7f7f5;
+		--border: rgba(0, 0, 0, 0.12);
+		--text: #1c1c1a;
+		--muted: #6a6a64;
+		--faint: #9a9a92;
+		--radius: 10px;
+		--radius-sm: 7px;
+		--blue-bg: #e6f1fb; --blue-text: #0c447c;
+		--gray-bg: #f1efe8; --gray-text: #444441;
+		--red-bg: #fcebeb; --red-text: #791f1f;
+		--amber-bg: #faeeda; --amber-text: #633806;
+		--teal-bg: #e1f5ee; --teal-text: #0f6e56;
+		--danger: #a32d2d;
+	}
+	* { box-sizing: border-box; }
+	body {
+		margin: 0;
+		font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+		color: var(--text);
+		background: var(--page);
+		line-height: 1.5;
+		padding: 1.5rem 1rem 3rem;
+		padding-top: calc(1.5rem + env(safe-area-inset-top));
+		padding-left: calc(1rem + env(safe-area-inset-left));
+		padding-right: calc(1rem + env(safe-area-inset-right));
+		padding-bottom: calc(3rem + env(safe-area-inset-bottom));
+		-webkit-tap-highlight-color: transparent;
+	}
+	.wrap { max-width: 760px; margin: 0 auto; }
+	h1 { font-size: 22px; font-weight: 600; margin: 0 0 0.25rem; }
+	.sub { font-size: 14px; color: var(--muted); margin: 0 0 1.5rem; }
+
+	.card {
+		background: var(--bg);
+		border: 1px solid var(--border);
+		border-radius: var(--radius);
+		padding: 1rem 1.1rem;
+		margin-bottom: 1rem;
+	}
+	.card-title { margin: 0 0 4px; font-size: 15px; font-weight: 600; }
+	.card-hint { margin: 0 0 10px; font-size: 12px; color: var(--muted); }
+
+	.row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+	.grow { flex: 1; min-width: 140px; }
+	.w-dur { width: 64px; flex: none; }
+	.w-time { width: 110px; flex: none; }
+
+	input, select, button { font-family: inherit; font-size: 14px; color: var(--text); }
+	input, select {
+		height: 36px; padding: 0 10px;
+		background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+	}
+	input[type="time"], input[type="number"] { padding: 0 8px; }
+	input:focus, select:focus { outline: none; border-color: var(--blue-text); box-shadow: 0 0 0 3px var(--blue-bg); }
+	.unit { font-size: 13px; color: var(--muted); }
+
+	button {
+		height: 36px; padding: 0 14px;
+		background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-sm);
+		cursor: pointer; transition: background 0.12s ease, transform 0.05s ease;
+	}
+	button:hover { background: var(--surface); }
+	button:active { transform: scale(0.98); }
+	.btn-icon { width: 36px; flex: none; padding: 0; font-size: 18px; line-height: 1; }
+	.btn-primary { flex: 1; font-weight: 600; background: var(--blue-bg); color: var(--blue-text); border-color: transparent; }
+	.btn-primary:hover { filter: brightness(0.96); background: var(--blue-bg); }
+
+	.list { margin-top: 10px; }
+	.list-item { display: flex; align-items: center; gap: 8px; padding: 6px 0; border-top: 1px solid var(--border); }
+	.empty { font-size: 13px; color: var(--faint); margin: 6px 0 0; }
+
+	.tag { font-size: 11px; padding: 2px 8px; border-radius: var(--radius-sm); white-space: nowrap; }
+	.tag-3 { background: var(--red-bg); color: var(--red-text); }
+	.tag-2 { background: var(--amber-bg); color: var(--amber-text); }
+	.tag-1 { background: var(--gray-bg); color: var(--gray-text); }
+	.tag-fixed { background: var(--teal-bg); color: var(--teal-text); }
+
+	.item-name { font-size: 14px; flex: 1; }
+	.item-meta { font-size: 13px; color: var(--muted); }
+	.time { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+	.x {
+		width: 26px; height: 26px; flex: none; padding: 0;
+		font-size: 15px; line-height: 1; border: none; background: transparent;
+		color: var(--muted); cursor: pointer; border-radius: var(--radius-sm);
+	}
+	.x:hover { background: var(--surface); color: var(--text); }
+
+	.days { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; }
+	.day { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; }
+	.day-title { margin: 0 0 8px; font-size: 14px; font-weight: 600; }
+
+	.day-window { display: flex; align-items: center; gap: 4px; margin-bottom: 10px; }
+	.day-window input { flex: 1; min-width: 0; padding: 0 6px; }
+	.window-label { font-size: 12px; color: var(--muted); white-space: nowrap; }
+
+	.block-form { display: flex; gap: 4px; align-items: center; margin-bottom: 4px; }
+	.block-form input, .block-form select { font-size: 13px; padding: 0 6px; }
+	.block-form .grow { min-width: 0; }
+	.block-times { display: flex; gap: 4px; align-items: center; }
+	.block-times input { flex: 1; min-width: 0; padding: 0 6px; }
+
+	.block { display: flex; align-items: center; gap: 6px; padding: 5px 7px; border-radius: var(--radius-sm); margin-top: 4px; font-size: 13px; }
+	.block-appt { background: var(--blue-bg); color: var(--blue-text); }
+	.block-block { background: var(--gray-bg); color: var(--gray-text); }
+	.block-fixed { background: var(--teal-bg); color: var(--teal-text); }
+	.block .time { color: inherit; opacity: 0.85; }
+	.block-name { flex: 1; }
+	.block .x { color: inherit; }
+	.block-lock { font-size: 11px; opacity: 0.7; }
+
+	.actions { display: flex; gap: 8px; margin: 1rem 0; }
+
+	.result-grid { margin-top: 0.5rem; display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 0.75rem; }
+	.slot { display: flex; align-items: center; gap: 8px; padding: 6px 8px; border-radius: var(--radius-sm); margin-bottom: 5px; font-size: 13px; }
+	.slot-task-3 { background: var(--red-bg); color: var(--red-text); }
+	.slot-task-2 { background: var(--amber-bg); color: var(--amber-text); }
+	.slot-task-1 { background: var(--gray-bg); color: var(--gray-text); }
+	.slot-appt { background: var(--blue-bg); color: var(--blue-text); }
+	.slot-block { background: var(--gray-bg); color: var(--gray-text); }
+	.slot-fixed { background: var(--teal-bg); color: var(--teal-text); }
+	.slot .time { color: inherit; opacity: 0.85; min-width: 82px; }
+	.slot-name { flex: 1; }
+
+	.warn { background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 0.9rem 1rem; margin-top: 0.75rem; }
+	.warn-title { margin: 0 0 6px; font-size: 13px; color: var(--danger); font-weight: 600; }
+	.warn-items { font-size: 13px; color: var(--muted); }
+	.error { font-size: 13px; color: var(--danger); margin: 0; }
+</style>
+</head>
+<body>
+<div class="wrap" id="root">
+
+	<h1>Huishoudplanner</h1>
+	<p class="sub">Vul je taken in, blokkeer tijd per dag, en laat de planner alles over zaterdag, zondag en maandag verdelen.</p>
+
+	<div class="card">
+		<p class="card-title">Vaste blokken</p>
+		<p class="card-hint">Deze gelden elke dag (za/zo/ma). Handig voor maaltijden of vaste momenten. Aanpassen of verwijderen mag.</p>
+		<div class="row">
+			<input type="text" id="fixed-name" class="grow" placeholder="bijv. lunch" />
+			<input type="time" id="fixed-start" class="w-time" value="12:30" />
+			<span class="window-label">&ndash;</span>
+			<input type="time" id="fixed-end" class="w-time" value="13:00" />
+			<button id="add-fixed" class="btn-icon" aria-label="Vast blok toevoegen">+</button>
+		</div>
+		<div id="fixed-list" class="list"></div>
+	</div>
+
+	<div class="card">
+		<p class="card-title">Huishoudtaken (gedeelde lijst)</p>
+		<div class="row">
+			<input type="text" id="task-name" class="grow" placeholder="bijv. stofzuigen" />
+			<input type="number" id="task-dur" class="w-dur" value="30" min="5" step="5" />
+			<span class="unit">min</span>
+			<select id="task-prio">
+				<option value="3">Hoog</option>
+				<option value="2" selected>Normaal</option>
+				<option value="1">Laag</option>
+			</select>
+			<button id="add-task" class="btn-icon" aria-label="Taak toevoegen">+</button>
+		</div>
+		<div id="task-list" class="list"></div>
+	</div>
+
+	<div id="days" class="days"></div>
+
+	<div class="actions">
+		<button id="plan" class="btn-primary">Plan mijn weekend</button>
+		<button id="reset" class="btn-icon" aria-label="Alles wissen">&times;</button>
+	</div>
+
+	<div id="result"></div>
+
+</div>
+
+<script>
+( function () {
+	'use strict';
+
+	var KEY = 'huishoudplanner_v2';
+	var DAYS = [
+		{ k: 'za', label: 'Zaterdag' },
+		{ k: 'zo', label: 'Zondag' },
+		{ k: 'ma', label: 'Maandag' }
+	];
+
+	function uid() { return Date.now().toString( 36 ) + Math.random().toString( 36 ).slice( 2, 7 ); }
+
+	function defaultFixed() {
+		return [
+			{ id: uid(), name: 'Ontbijt', start: '08:00', end: '08:30' },
+			{ id: uid(), name: 'Lunch', start: '12:30', end: '13:00' },
+			{ id: uid(), name: 'Avondeten', start: '18:00', end: '19:00' }
+		];
+	}
+
+	var state = { tasks: [], fixed: [], days: {} };
+	DAYS.forEach( function ( d ) {
+		state.days[ d.k ] = { winStart: '08:00', winEnd: '22:00', blocks: [] };
+	} );
+
+	function load() {
+		var firstRun = true;
+		try {
+			var s = JSON.parse( localStorage.getItem( KEY ) );
+			if ( s ) {
+				firstRun = false;
+				state.tasks = s.tasks || [];
+				state.fixed = s.fixed || [];
+				DAYS.forEach( function ( d ) {
+					if ( s.days && s.days[ d.k ] ) {
+						state.days[ d.k ] = Object.assign( state.days[ d.k ], s.days[ d.k ] );
+					}
+				} );
+			}
+		} catch ( e ) {}
+		if ( firstRun ) {
+			state.fixed = defaultFixed();
+		}
+	}
+	function save() {
+		try { localStorage.setItem( KEY, JSON.stringify( state ) ); } catch ( e ) {}
+	}
+
+	function toMin( t ) { var p = String( t ).split( ':' ); return ( +p[ 0 ] ) * 60 + ( +p[ 1 ] ); }
+	function toTime( m ) {
+		m = Math.round( m );
+		var h = Math.floor( m / 60 ), mm = m % 60;
+		return ( h < 10 ? '0' : '' ) + h + ':' + ( mm < 10 ? '0' : '' ) + mm;
+	}
+	function esc( s ) {
+		return String( s ).replace( /[&<>"]/g, function ( c ) {
+			return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[ c ];
+		} );
+	}
+
+	var prioLabel = { 3: 'Hoog', 2: 'Normaal', 1: 'Laag' };
+
+	var els = {
+		fixedName: document.getElementById( 'fixed-name' ),
+		fixedStart: document.getElementById( 'fixed-start' ),
+		fixedEnd: document.getElementById( 'fixed-end' ),
+		addFixed: document.getElementById( 'add-fixed' ),
+		fixedList: document.getElementById( 'fixed-list' ),
+		taskName: document.getElementById( 'task-name' ),
+		taskDur: document.getElementById( 'task-dur' ),
+		taskPrio: document.getElementById( 'task-prio' ),
+		addTask: document.getElementById( 'add-task' ),
+		taskList: document.getElementById( 'task-list' ),
+		days: document.getElementById( 'days' ),
+		plan: document.getElementById( 'plan' ),
+		reset: document.getElementById( 'reset' ),
+		result: document.getElementById( 'result' )
+	};
+
+	function renderFixed() {
+		if ( ! state.fixed.length ) {
+			els.fixedList.innerHTML = '<p class="empty">Geen vaste blokken. Voeg er eentje toe als je elke dag tijd wilt reserveren.</p>';
+			return;
+		}
+		var sorted = state.fixed.slice().sort( function ( a, b ) { return toMin( a.start ) - toMin( b.start ); } );
+		els.fixedList.innerHTML = sorted.map( function ( f ) {
+			return '<div class="list-item">' +
+				'<span class="tag tag-fixed">elke dag</span>' +
+				'<span class="item-name">' + esc( f.name ) + '</span>' +
+				'<span class="time">' + f.start + '&ndash;' + f.end + '</span>' +
+				'<button class="x" data-rmfixed="' + f.id + '" aria-label="Verwijderen">&times;</button>' +
+				'</div>';
+		} ).join( '' );
+	}
+
+	function renderTasks() {
+		if ( ! state.tasks.length ) {
+			els.taskList.innerHTML = '<p class="empty">Nog geen taken. Voeg toe en plan ze daarna over de dagen.</p>';
+			return;
+		}
+		var sorted = state.tasks.slice().sort( function ( a, b ) { return b.prio - a.prio || a.dur - b.dur; } );
+		els.taskList.innerHTML = sorted.map( function ( t ) {
+			return '<div class="list-item">' +
+				'<span class="tag tag-' + t.prio + '">' + prioLabel[ t.prio ] + '</span>' +
+				'<span class="item-name">' + esc( t.name ) + '</span>' +
+				'<span class="item-meta">' + t.dur + ' min</span>' +
+				'<button class="x" data-rmtask="' + t.id + '" aria-label="Verwijderen">&times;</button>' +
+				'</div>';
+		} ).join( '' );
+	}
+
+	function renderDays() {
+		els.days.innerHTML = DAYS.map( function ( d ) {
+			var dd = state.days[ d.k ];
+			var fixedRows = state.fixed.slice().sort( function ( a, b ) { return toMin( a.start ) - toMin( b.start ); } ).map( function ( f ) {
+				return '<div class="block block-fixed">' +
+					'<span class="time">' + f.start + '&ndash;' + f.end + '</span>' +
+					'<span class="block-name">' + esc( f.name ) + '</span>' +
+					'<span class="block-lock">vast</span>' +
+					'</div>';
+			} ).join( '' );
+			var blocks = dd.blocks.slice().sort( function ( a, b ) { return toMin( a.start ) - toMin( b.start ); } ).map( function ( b ) {
+				var cls = b.kind === 'appt' ? 'block-appt' : 'block-block';
+				return '<div class="block ' + cls + '">' +
+					'<span class="time">' + b.start + '&ndash;' + b.end + '</span>' +
+					'<span class="block-name">' + esc( b.name ) + '</span>' +
+					'<button class="x" data-rmblock="' + d.k + '|' + b.id + '" aria-label="Verwijderen">&times;</button>' +
+					'</div>';
+			} ).join( '' );
+
+			return '<div class="day">' +
+				'<p class="day-title">' + d.label + '</p>' +
+				'<div class="day-window">' +
+					'<span class="window-label">venster</span>' +
+					'<input type="time" data-win="' + d.k + '|start" value="' + dd.winStart + '" />' +
+					'<span class="window-label">&ndash;</span>' +
+					'<input type="time" data-win="' + d.k + '|end" value="' + dd.winEnd + '" />' +
+				'</div>' +
+				'<div class="block-form">' +
+					'<select data-kind="' + d.k + '"><option value="appt">Afspraak</option><option value="block">Blok</option></select>' +
+					'<input type="text" class="grow" data-bn="' + d.k + '" placeholder="naam (bijv. eten)" />' +
+				'</div>' +
+				'<div class="block-times">' +
+					'<input type="time" data-bs="' + d.k + '" value="13:00" />' +
+					'<span class="window-label">&ndash;</span>' +
+					'<input type="time" data-be="' + d.k + '" value="14:00" />' +
+					'<button class="btn-icon" data-addblock="' + d.k + '" aria-label="Toevoegen">+</button>' +
+				'</div>' +
+				'<div>' + fixedRows + blocks +
+					( ( fixedRows || blocks ) ? '' : '<p class="empty">Geen geblokkeerde tijd.</p>' ) +
+				'</div>' +
+				'</div>';
+		} ).join( '' );
+	}
+
+	function planDay( dd, pool ) {
+		var ws = toMin( dd.winStart ), we = toMin( dd.winEnd );
+
+		var fixedBlocks = state.fixed.map( function ( f ) {
+			return { start: toMin( f.start ), end: toMin( f.end ), name: f.name, kind: 'fixed', type: 'block' };
+		} );
+		var dayBlocks = dd.blocks.map( function ( b ) {
+			return { start: toMin( b.start ), end: toMin( b.end ), name: b.name, kind: b.kind, type: 'block' };
+		} );
+
+		var blocks = fixedBlocks.concat( dayBlocks )
+			.filter( function ( b ) { return b.end > ws && b.start < we; } )
+			.sort( function ( a, b ) { return a.start - b.start; } );
+
+		var free = [], cur = ws;
+		blocks.forEach( function ( b ) {
+			var s = Math.max( b.start, ws );
+			if ( s > cur ) { free.push( { start: cur, end: s } ); }
+			cur = Math.max( cur, Math.min( b.end, we ) );
+		} );
+		if ( cur < we ) { free.push( { start: cur, end: we } ); }
+
+		var placed = [];
+		for ( var i = pool.length - 1; i >= 0; i-- ) {
+			var t = pool[ i ];
+			for ( var g = 0; g < free.length; g++ ) {
+				if ( free[ g ].end - free[ g ].start >= t.dur ) {
+					placed.push( { start: free[ g ].start, end: free[ g ].start + t.dur, name: t.name, prio: t.prio, type: 'task' } );
+					free[ g ].start += t.dur;
+					pool.splice( i, 1 );
+					break;
+				}
+			}
+		}
+		return blocks.concat( placed ).sort( function ( a, b ) { return a.start - b.start; } );
+	}
+
+	function plan() {
+		var pool = state.tasks.slice().sort( function ( a, b ) { return b.prio - a.prio || a.dur - b.dur; } );
+		var html = '<div class="result-grid">';
+		DAYS.forEach( function ( d ) {
+			var dd = state.days[ d.k ];
+			html += '<div class="day"><p class="day-title">' + d.label + '</p>';
+			if ( toMin( dd.winEnd ) <= toMin( dd.winStart ) ) {
+				html += '<p class="error">Ongeldig tijdvenster.</p></div>';
+				return;
+			}
+			var timeline = planDay( dd, pool );
+			if ( ! timeline.length ) { html += '<p class="empty">Niets ingepland.</p>'; }
+			timeline.forEach( function ( it ) {
+				var cls;
+				if ( it.type === 'task' ) {
+					cls = 'slot-task-' + it.prio;
+				} else if ( it.kind === 'appt' ) {
+					cls = 'slot-appt';
+				} else if ( it.kind === 'fixed' ) {
+					cls = 'slot-fixed';
+				} else {
+					cls = 'slot-block';
+				}
+				html += '<div class="slot ' + cls + '">' +
+					'<span class="time">' + toTime( it.start ) + '&ndash;' + toTime( it.end ) + '</span>' +
+					'<span class="slot-name">' + esc( it.name ) + '</span>' +
+					'</div>';
+			} );
+			html += '</div>';
+		} );
+		html += '</div>';
+		if ( pool.length ) {
+			html += '<div class="warn"><p class="warn-title">Past niet in het weekend:</p>' +
+				'<span class="warn-items">' + pool.map( function ( t ) { return esc( t.name ) + ' (' + t.dur + ' min)'; } ).join( ', ' ) + '</span></div>';
+		}
+		els.result.innerHTML = html;
+	}
+
+	function bind() {
+		els.addFixed.addEventListener( 'click', function () {
+			var n = els.fixedName.value.trim() || 'Vast blok';
+			var s = els.fixedStart.value, en = els.fixedEnd.value;
+			if ( toMin( en ) <= toMin( s ) ) { return; }
+			state.fixed.push( { id: uid(), name: n, start: s, end: en } );
+			els.fixedName.value = '';
+			save(); renderFixed(); renderDays();
+		} );
+		els.fixedName.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Enter' ) { els.addFixed.click(); } } );
+
+		els.fixedList.addEventListener( 'click', function ( e ) {
+			var btn = e.target.closest( '[data-rmfixed]' );
+			if ( ! btn ) { return; }
+			var id = btn.getAttribute( 'data-rmfixed' );
+			state.fixed = state.fixed.filter( function ( f ) { return f.id !== id; } );
+			save(); renderFixed(); renderDays();
+		} );
+
+		els.addTask.addEventListener( 'click', function () {
+			var n = els.taskName.value.trim() || 'Taak';
+			var dur = Math.max( 5, parseInt( els.taskDur.value, 10 ) || 30 );
+			var p = parseInt( els.taskPrio.value, 10 );
+			state.tasks.push( { id: uid(), name: n, dur: dur, prio: p } );
+			els.taskName.value = '';
+			save(); renderTasks();
+		} );
+		els.taskName.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Enter' ) { els.addTask.click(); } } );
+
+		els.taskList.addEventListener( 'click', function ( e ) {
+			var btn = e.target.closest( '[data-rmtask]' );
+			if ( ! btn ) { return; }
+			var id = btn.getAttribute( 'data-rmtask' );
+			state.tasks = state.tasks.filter( function ( t ) { return t.id !== id; } );
+			save(); renderTasks();
+		} );
+
+		els.days.addEventListener( 'change', function ( e ) {
+			var w = e.target.getAttribute( 'data-win' );
+			if ( w ) {
+				var p = w.split( '|' );
+				state.days[ p[ 0 ] ][ p[ 1 ] === 'start' ? 'winStart' : 'winEnd' ] = e.target.value;
+				save();
+			}
+		} );
+
+		els.days.addEventListener( 'click', function ( e ) {
+			var add = e.target.closest( '[data-addblock]' );
+			if ( add ) {
+				var k = add.getAttribute( 'data-addblock' );
+				var kind = els.days.querySelector( '[data-kind="' + k + '"]' ).value;
+				var name = els.days.querySelector( '[data-bn="' + k + '"]' ).value.trim() || ( kind === 'appt' ? 'Afspraak' : 'Geblokkeerd' );
+				var s = els.days.querySelector( '[data-bs="' + k + '"]' ).value;
+				var en = els.days.querySelector( '[data-be="' + k + '"]' ).value;
+				if ( toMin( en ) <= toMin( s ) ) { return; }
+				state.days[ k ].blocks.push( { id: uid(), name: name, start: s, end: en, kind: kind } );
+				save(); renderDays();
+				return;
+			}
+			var rm = e.target.closest( '[data-rmblock]' );
+			if ( rm ) {
+				var pp = rm.getAttribute( 'data-rmblock' ).split( '|' );
+				state.days[ pp[ 0 ] ].blocks = state.days[ pp[ 0 ] ].blocks.filter( function ( b ) { return b.id !== pp[ 1 ]; } );
+				save(); renderDays();
+			}
+		} );
+
+		els.plan.addEventListener( 'click', plan );
+		els.reset.addEventListener( 'click', function () {
+			if ( ! window.confirm( 'Alles wissen? Vaste blokken worden teruggezet naar de standaardvoorbeelden.' ) ) { return; }
+			state.tasks = [];
+			state.fixed = defaultFixed();
+			DAYS.forEach( function ( d ) { state.days[ d.k ].blocks = []; } );
+			save(); renderFixed(); renderTasks(); renderDays();
+			els.result.innerHTML = '';
+		} );
+	}
+
+	load(); bind(); renderFixed(); renderTasks(); renderDays();
+} )();
+</script>
+<script>
+	if ( 'serviceWorker' in navigator ) {
+		window.addEventListener( 'load', function () {
+			navigator.serviceWorker.register( 'service-worker.js' ).catch( function () {} );
+		} );
+	}
+</script>
+</body>
+</html>
