@@ -42,4 +42,22 @@ en open die map via `https://`.
 - Je gegevens worden lokaal op je telefoon bewaard (in de browseropslag van de app).
   Ze synchroniseren niet automatisch met je laptop.
 - Werk je de app bij, verhoog dan `CACHE_NAME` in `service-worker.js` (bijv. naar
-  `huishoudplanner-v2`), anders blijft de oude versie in de cache hangen.
+  `huishoudplanner-v3`), anders blijft de oude versie in de cache hangen.
+
+## Meldingen
+
+De app kan twee soorten meldingen tonen:
+
+1. Een bevestiging zodra je een taak toevoegt.
+2. Een herinnering precies op het moment dat een ingeplande taak begint.
+
+Zet meldingen eenmalig aan via de groene balk bovenin ("Meldingen aanzetten") en
+geef toestemming wanneer de telefoon daarom vraagt. De herinneringen worden gezet
+op het eerstvolgende voorkomen van de betreffende weekdag (een taak op zaterdag
+10:00 → de eerstkomende zaterdag om 10:00).
+
+Belangrijke beperking: een web-app mag meldingen alleen betrouwbaar tonen zolang de
+app open is of recent open was. Heb je de app helemaal afgesloten, dan kan een
+melding op het exacte tijdstip gemist worden. Dit is een grens van web-apps in het
+algemeen, niet van deze app specifiek. Open je de app opnieuw, dan worden de
+herinneringen automatisch opnieuw ingsteld.

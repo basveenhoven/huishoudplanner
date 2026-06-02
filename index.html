@@ -143,6 +143,19 @@
 	.warn-title { margin: 0 0 6px; font-size: 13px; color: var(--danger); font-weight: 600; }
 	.warn-items { font-size: 13px; color: var(--muted); }
 	.error { font-size: 13px; color: var(--danger); margin: 0; }
+
+	.notif-bar {
+		display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+		background: var(--teal-bg); color: var(--teal-text);
+		border-radius: var(--radius); padding: 0.7rem 0.9rem; margin-bottom: 1rem;
+	}
+	.notif-text { font-size: 13px; flex: 1; min-width: 180px; }
+	.notif-btn {
+		height: 32px; padding: 0 12px; font-size: 13px; font-weight: 600;
+		background: var(--teal-text); color: #fff; border: none;
+		border-radius: var(--radius-sm); cursor: pointer;
+	}
+	.notif-btn:hover { filter: brightness(1.08); background: var(--teal-text); }
 </style>
 </head>
 <body>
@@ -150,6 +163,11 @@
 
 	<h1>Huishoudplanner</h1>
 	<p class="sub">Vul je taken in, blokkeer tijd per dag, en laat de planner alles over zaterdag, zondag en maandag verdelen.</p>
+
+	<div id="notif-bar" class="notif-bar" style="display:none;">
+		<span id="notif-text" class="notif-text">Zet meldingen aan voor een herinnering wanneer een taak begint.</span>
+		<button id="notif-btn" class="notif-btn">Meldingen aanzetten</button>
+	</div>
 
 	<div class="card">
 		<p class="card-title">Vaste blokken</p>
@@ -212,7 +230,7 @@
 		];
 	}
 
-	var state = { tasks: [], fixed: [], days: {} };
+	var state = { tasks: [], fixed: [], days: {}, lastPlan: null };
 	DAYS.forEach( function ( d ) {
 		state.days[ d.k ] = { winStart: '08:00', winEnd: '22:00', blocks: [] };
 	} );
@@ -225,6 +243,7 @@
 				firstRun = false;
 				state.tasks = s.tasks || [];
 				state.fixed = s.fixed || [];
+				state.lastPlan = s.lastPlan || null;
 				DAYS.forEach( function ( d ) {
 					if ( s.days && s.days[ d.k ] ) {
 						state.days[ d.k ] = Object.assign( state.days[ d.k ], s.days[ d.k ] );
@@ -268,8 +287,82 @@
 		days: document.getElementById( 'days' ),
 		plan: document.getElementById( 'plan' ),
 		reset: document.getElementById( 'reset' ),
-		result: document.getElementById( 'result' )
+		result: document.getElementById( 'result' ),
+		notifBar: document.getElementById( 'notif-bar' ),
+		notifBtn: document.getElementById( 'notif-btn' ),
+		notifText: document.getElementById( 'notif-text' )
 	};
+
+	// --- Notificaties ---------------------------------------------------
+
+	var notifSupported = ( 'Notification' in window );
+	var reminderTimers = [];
+	var DAY_INDEX = { za: 6, zo: 0, ma: 1 }; // JS: zo=0 ... za=6
+
+	function refreshNotifBar() {
+		if ( ! notifSupported ) {
+			els.notifBar.style.display = 'none';
+			return;
+		}
+		var p = Notification.permission;
+		if ( p === 'granted' ) {
+			els.notifBar.style.display = 'none';
+		} else if ( p === 'denied' ) {
+			els.notifBar.style.display = 'flex';
+			els.notifText.textContent = 'Meldingen staan uit in je browserinstellingen. Zet ze daar aan om herinneringen te ontvangen.';
+			els.notifBtn.style.display = 'none';
+		} else {
+			els.notifBar.style.display = 'flex';
+			els.notifText.textContent = 'Zet meldingen aan voor een herinnering wanneer een taak begint.';
+			els.notifBtn.style.display = '';
+		}
+	}
+
+	function notify( title, body ) {
+		if ( ! notifSupported || Notification.permission !== 'granted' ) { return; }
+		try {
+			if ( navigator.serviceWorker && navigator.serviceWorker.ready ) {
+				navigator.serviceWorker.ready.then( function ( reg ) {
+					reg.showNotification( title, { body: body, icon: 'icons/icon-192.png', badge: 'icons/icon-192.png', tag: 'hhp' } );
+				} );
+			} else {
+				new Notification( title, { body: body, icon: 'icons/icon-192.png' } );
+			}
+		} catch ( e ) {}
+	}
+
+	// Eerstvolgende voorkomen van een weekdag op een bepaald tijdstip (in ms vanaf nu).
+	function nextOccurrence( dayKey, minutes ) {
+		var target = DAY_INDEX[ dayKey ];
+		var now = new Date();
+		var d = new Date( now.getFullYear(), now.getMonth(), now.getDate(), Math.floor( minutes / 60 ), minutes % 60, 0, 0 );
+		var add = ( target - d.getDay() + 7 ) % 7;
+		d.setDate( d.getDate() + add );
+		if ( d.getTime() <= now.getTime() ) {
+			d.setDate( d.getDate() + 7 );
+		}
+		return d.getTime() - now.getTime();
+	}
+
+	// Zet timers voor alle ingeplande taken (op basis van de laatste planning).
+	function scheduleReminders( perDay ) {
+		reminderTimers.forEach( function ( id ) { clearTimeout( id ); } );
+		reminderTimers = [];
+		if ( ! notifSupported || Notification.permission !== 'granted' ) { return; }
+
+		Object.keys( perDay ).forEach( function ( dayKey ) {
+			perDay[ dayKey ].forEach( function ( slot ) {
+				var delay = nextOccurrence( dayKey, slot.start );
+				// Alleen binnen ~8 dagen plannen; setTimeout is onbetrouwbaar over langere periodes.
+				if ( delay > 0 && delay < 8 * 24 * 60 * 60 * 1000 ) {
+					var id = setTimeout( function () {
+						notify( 'Tijd voor: ' + slot.name, 'Gepland om ' + toTime( slot.start ) + '.' );
+					}, delay );
+					reminderTimers.push( id );
+				}
+			} );
+		} );
+	}
 
 	function renderFixed() {
 		if ( ! state.fixed.length ) {
@@ -386,6 +479,7 @@
 
 	function plan() {
 		var pool = state.tasks.slice().sort( function ( a, b ) { return b.prio - a.prio || a.dur - b.dur; } );
+		var taskSlotsPerDay = {};
 		var html = '<div class="result-grid">';
 		DAYS.forEach( function ( d ) {
 			var dd = state.days[ d.k ];
@@ -395,6 +489,8 @@
 				return;
 			}
 			var timeline = planDay( dd, pool );
+			taskSlotsPerDay[ d.k ] = timeline.filter( function ( it ) { return it.type === 'task'; } )
+				.map( function ( it ) { return { name: it.name, start: it.start }; } );
 			if ( ! timeline.length ) { html += '<p class="empty">Niets ingepland.</p>'; }
 			timeline.forEach( function ( it ) {
 				var cls;
@@ -420,6 +516,19 @@
 				'<span class="warn-items">' + pool.map( function ( t ) { return esc( t.name ) + ' (' + t.dur + ' min)'; } ).join( ', ' ) + '</span></div>';
 		}
 		els.result.innerHTML = html;
+
+		// Laatste planning bewaren en herinneringen (her)plannen.
+		state.lastPlan = taskSlotsPerDay;
+		save();
+		scheduleReminders( taskSlotsPerDay );
+
+		if ( notifSupported && Notification.permission === 'granted' ) {
+			var count = 0;
+			Object.keys( taskSlotsPerDay ).forEach( function ( k ) { count += taskSlotsPerDay[ k ].length; } );
+			if ( count > 0 ) {
+				notify( 'Weekend ingepland', count + ' ' + ( count === 1 ? 'taak' : 'taken' ) + ' op de planning. Je krijgt een seintje als ze beginnen.' );
+			}
+		}
 	}
 
 	function bind() {
@@ -448,6 +557,7 @@
 			state.tasks.push( { id: uid(), name: n, dur: dur, prio: p } );
 			els.taskName.value = '';
 			save(); renderTasks();
+			notify( 'Taak toegevoegd', n + ' (' + dur + ' min, ' + prioLabel[ p ].toLowerCase() + ').' );
 		} );
 		els.taskName.addEventListener( 'keydown', function ( e ) { if ( e.key === 'Enter' ) { els.addTask.click(); } } );
 
@@ -494,13 +604,34 @@
 			if ( ! window.confirm( 'Alles wissen? Vaste blokken worden teruggezet naar de standaardvoorbeelden.' ) ) { return; }
 			state.tasks = [];
 			state.fixed = defaultFixed();
+			state.lastPlan = null;
 			DAYS.forEach( function ( d ) { state.days[ d.k ].blocks = []; } );
+			reminderTimers.forEach( function ( id ) { clearTimeout( id ); } );
+			reminderTimers = [];
 			save(); renderFixed(); renderTasks(); renderDays();
 			els.result.innerHTML = '';
 		} );
+
+		els.notifBtn.addEventListener( 'click', function () {
+			if ( ! notifSupported ) { return; }
+			Notification.requestPermission().then( function ( perm ) {
+				refreshNotifBar();
+				if ( perm === 'granted' ) {
+					notify( 'Meldingen staan aan', 'Je krijgt voortaan een seintje wanneer een taak begint.' );
+					if ( state.lastPlan ) { scheduleReminders( state.lastPlan ); }
+				}
+			} );
+		} );
 	}
 
-	load(); bind(); renderFixed(); renderTasks(); renderDays();
+	load();
+	bind();
+	renderFixed();
+	renderTasks();
+	renderDays();
+	refreshNotifBar();
+	// Bij openen: herinneringen opnieuw zetten op basis van de laatste planning.
+	if ( state.lastPlan ) { scheduleReminders( state.lastPlan ); }
 } )();
 </script>
 <script>
